@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Système de Surveillance Intelligente de Voiture — Arduino Uno</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════
+   VARIABLES & RESET
+══════════════════════════════════════════════════ */
+:root {
+  --cyan:      #00f5ff;
+  --blue:      #0080ff;
+  --bg:        #020b14;
+  --bg2:       #040f1c;
+  --card:      rgba(0,20,45,0.88);
+  --border:    rgba(0,245,255,0.16);
+  --glow:      0 0 20px rgba(0,245,255,0.3), 0 0 50px rgba(0,128,255,0.1);
+  --text:      #daeeff;
+  --muted:     #7daec8;
+  --green:     #00ff88;
+  --yellow:    #ffe040;
+  --red:       #ff3355;
+  --orange:    #ff8c00;
+  --purple:    #9060ff;
+  --nav-h:     64px;
+  /* Typographie */
+  --font-body:  'Exo 2', sans-serif;
+  --font-head:  'Orbitron', monospace;
+  --font-mono:  'JetBrains Mono', monospace;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:16px; }
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 1rem;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--cyan); border-radius:3px; }
+img { max-width:100%; display:block; }
+
+/* Grille de fond */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    linear-gradient(rgba(0,245,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,255,0.022) 1px, transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ══════════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════════ */
+nav {
+  position:fixed; top:0; left:0; right:0;
+  height:var(--nav-h);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 clamp(16px, 4vw, 48px);
+  background:rgba(2,11,20,0.95);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border);
+  z-index:200;
+  gap:16px;
+}
+.nav-logo {
+  font-family: var(--font-head);
+  font-size: clamp(0.65rem, 1.5vw, 0.82rem);
+  font-weight: 700;
+  color: var(--cyan);
+  text-shadow: var(--glow);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
+}
+.nav-links {
+  display:flex;
+  gap:clamp(10px, 1.8vw, 24px);
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.nav-links a {
+  font-family: var(--font-body);
+  font-size: clamp(0.7rem, 1.2vw, 0.82rem);
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color .3s;
+  white-space: nowrap;
+}
+.nav-links a:hover, .nav-links a.active { color: var(--cyan); }
+
+/* Menu burger mobile */
+.burger {
+  display:none;
+  flex-direction:column;
+  gap:5px;
+  cursor:pointer;
+  padding:4px;
+  flex-shrink:0;
+}
+.burger span {
+  display:block; width:24px; height:2px;
+  background:var(--cyan); border-radius:2px;
+  transition:all .3s;
+}
+.burger.open span:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+.burger.open span:nth-child(2) { opacity:0; }
+.burger.open span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+
+/* Menu mobile overlay */
+.mobile-menu {
+  display:none;
+  position:fixed; top:var(--nav-h); left:0; right:0;
+  background:rgba(2,11,20,0.98);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:20px clamp(16px,5vw,40px);
+  z-index:199;
+  flex-direction:column;
+  gap:4px;
+}
+.mobile-menu.open { display:flex; }
+.mobile-menu a {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration:none;
+  padding:10px 16px;
+  border-radius:6px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  transition:all .2s;
+}
+.mobile-menu a:hover { color:var(--cyan); background:rgba(0,245,255,0.06); }
+
+/* ══════════════════════════════════════════════════
+   TYPOGRAPHIE COMMUNE
+══════════════════════════════════════════════════ */
+.etiquette {
+  font-family: var(--font-mono);
+  font-size: clamp(0.62rem, 1.5vw, 0.7rem);
+  color: var(--cyan);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  opacity: .9;
+}
+h2.titre-section {
+  font-family: var(--font-head);
+  font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(0,245,255,0.35);
+  margin-bottom: 12px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+.ligne-titre {
+  width:56px; height:3px;
+  background:linear-gradient(90deg,var(--cyan),transparent);
+  margin-bottom:clamp(24px,5vw,44px);
+  border-radius:2px;
+}
+
+/* ══════════════════════════════════════════════════
+   SECTIONS
+══════════════════════════════════════════════════ */
+section {
+  position:relative;
+  z-index:1;
+  padding:clamp(60px,8vw,110px) clamp(16px,6vw,64px);
+  max-width:1300px;
+  margin:0 auto;
+}
+section.pleine-largeur {
+  max-width:100%;
+  padding-left:clamp(16px,5vw,60px);
+  padding-right:clamp(16px,5vw,60px);
+}
+
+/* Reveal animation */
+.reveal { opacity:0; transform:translateY(36px); transition:opacity .75s ease, transform .75s ease; }
+.reveal.visible { opacity:1; transform:translateY(0); }
+
+/* ══════════════════════════════════════════════════
+   HERO
+══════════════════════════════════════════════════ */
+#accueil {
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  text-align:center;
+  padding-top:calc(var(--nav-h) + 40px);
+  max-width:100%;
+  overflow:hidden;
+}
+#accueil::before {
+  content:'';
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:min(700px, 95vw); height:min(700px, 95vw);
+  background:radial-gradient(circle, rgba(0,128,255,0.08) 0%, transparent 70%);
+  animation:pulsation 4s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes pulsation {
+  0%,100%{ transform:translate(-50%,-50%) scale(1); opacity:.6; }
+  50%{ transform:translate(-50%,-50%) scale(1.15); opacity:1; }
+}
+.hero-badge {
+  display:inline-block;
+  border:1px solid var(--cyan);
+  padding:6px 20px; border-radius:30px;
+  font-family: var(--font-mono);
+  font-size:clamp(0.62rem,1.5vw,0.7rem);
+  color:var(--cyan); letter-spacing:0.15em;
+  margin-bottom:28px;
+  background:rgba(0,245,255,0.05);
+  animation:descente 1s ease .2s both;
+}
+.hero-titre {
+  font-family: var(--font-head);
+  font-weight:900;
+  font-size:clamp(1.6rem, 5.5vw, 4.5rem);
+  line-height:1.1; margin-bottom:20px;
+  animation:montee 1s ease .4s both;
+  letter-spacing: 0.01em;
+}
+.hero-titre .ligne1 { color:#fff; display:block; }
+.hero-titre .ligne2 {
+  display:block;
+  background:linear-gradient(90deg,var(--cyan),var(--blue));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero-sous {
+  font-family: var(--font-body);
+  font-size:clamp(0.95rem,2vw,1.12rem);
+  font-weight: 400;
+  color:var(--muted); max-width:640px;
+  margin:0 auto 36px; line-height:1.85;
+  animation:montee 1s ease .6s both;
+  padding:0 10px;
+}
+.hero-btn {
+  display:inline-block; padding:13px 36px;
+  border:1.5px solid var(--cyan); border-radius:4px;
+  color:var(--cyan); text-decoration:none;
+  font-family: var(--font-head);
+  font-size:clamp(0.62rem,1.5vw,0.72rem);
+  font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+  transition:all .3s; animation:montee 1s ease .8s both;
+  position:relative; overflow:hidden;
+}
+.hero-btn::before {
+  content:''; position:absolute; inset:0;
+  background:var(--cyan); transform:translateX(-100%);
+  transition:transform .35s ease; z-index:-1;
+}
+.hero-btn:hover::before { transform:translateX(0); }
+.hero-btn:hover { color:var(--bg); }
+.hero-stats {
+  display:flex; gap:clamp(12px,3vw,40px);
+  justify-content:center; margin-top:clamp(40px,7vw,70px);
+  animation:montee 1s ease 1s both; flex-wrap:wrap;
+  padding:0 10px;
+}
+.stat {
+  text-align:center;
+  border:1px solid var(--border);
+  padding:clamp(14px,3vw,20px) clamp(18px,3vw,30px);
+  border-radius:8px; background:var(--card); backdrop-filter:blur(10px);
+  min-width:100px;
+}
+.stat-num {
+  font-family: var(--font-head);
+  font-size:clamp(1.4rem,3vw,2rem); color:var(--cyan); font-weight:700;
+}
+.stat-label { font-family: var(--font-body); font-size:clamp(0.7rem,1.2vw,0.78rem); color:var(--muted); letter-spacing:.06em; margin-top:4px; font-weight:500; }
+
+@keyframes descente { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes montee   { from{opacity:0;transform:translateY(30px)}  to{opacity:1;transform:translateY(0)} }
+
+/* ══════════════════════════════════════════════════
+   IDÉE
+══════════════════════════════════════════════════ */
+#idee { background:linear-gradient(180deg,transparent,rgba(0,30,60,.3),transparent); }
+.idee-grille {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%,320px),1fr));
+  gap:clamp(24px,4vw,44px);
+  align-items:start;
+}
+.idee-texte p {
+  font-family: var(--font-body);
+  font-size:clamp(0.93rem,1.8vw,1.05rem);
+  line-height:1.85; color:var(--muted); margin-bottom:14px;
+  font-weight: 400;
+}
+.idee-texte p strong { color:var(--cyan); font-weight:600; }
+.idee-fonc { display:flex; flex-direction:column; gap:14px; }
+.fonc-item {
+  display:flex; align-items:center; gap:14px;
+  padding:14px 18px;
+  border:1px solid var(--border); border-radius:8px;
+  background:var(--card); transition:border-color .3s, transform .3s;
+}
+.fonc-item:hover { border-color:var(--cyan); transform:translateX(6px); }
+.fonc-icone {
+  width:42px; height:42px; border-radius:8px;
+  background:rgba(0,245,255,.1);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; flex-shrink:0;
+  border:1px solid rgba(0,245,255,.2);
+}
+.fonc-contenu h4 {
+  font-family: var(--font-head); font-size:.76rem;
+  color:var(--cyan); margin-bottom:3px; letter-spacing:0.04em;
+}
+.fonc-contenu p { font-family: var(--font-body); font-size:.88rem; color:var(--muted); line-height:1.55; font-weight:400; }
+
+/* ══════════════════════════════════════════════════
+   COMPOSANTS
+══════════════════════════════════════════════════ */
+#composants { background:rgba(0,10,25,.5); }
+.comp-grille {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(min(100%, 250px),1fr));
+  gap:clamp(16px,2.5vw,24px);
+}
+.comp-carte {
+  border:1px solid var(--border); border-radius:12px;
+  background:var(--card); overflow:hidden;
+  transition:transform .4s, border-color .3s, box-shadow .4s;
+  cursor:default; position:relative;
+}
+.comp-carte::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(0,245,255,.06),transparent 60%);
+  opacity:0; transition:opacity .4s; pointer-events:none;
+}
+.comp-carte:hover { transform:translateY(-7px); border-color:var(--cyan); box-shadow:var(--glow); }
+.comp-carte:hover::after { opacity:1; }
+.comp-image {
+  width:100%; height:clamp(130px,18vw,175px);
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,rgba(0,30,60,.9),rgba(0,15,35,.95));
+  border-bottom:1px solid var(--border);
+  position:relative; overflow:hidden;
+}
+.comp-image::before {
+  content:''; position:absolute;
+  width:90px; height:90px;
+  background:radial-gradient(circle,rgba(0,245,255,.12),transparent);
+  border-radius:50%; animation:flottement 3s ease-in-out infinite;
+}
+@keyframes flottement { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+.comp-corps { padding:clamp(14px,2vw,20px); }
+.comp-nom {
+  font-family: var(--font-head); font-size:clamp(.72rem,1.4vw,.8rem);
+  font-weight:700; color:var(--cyan); margin-bottom:8px; letter-spacing:.03em;
+}
+.comp-desc { font-family: var(--font-body); font-size:clamp(.84rem,1.4vw,.9rem); color:var(--muted); line-height:1.65; font-weight:400; }
+.comp-etiq {
+  display:inline-block; margin-top:10px;
+  padding:4px 12px; border-radius:20px;
+  background:rgba(0,245,255,.07); border:1px solid rgba(0,245,255,.2);
+  font-size:.68rem; color:var(--cyan); font-family: var(--font-mono);
+}
+
+/* ══════════════════════════════════════════════════
+   FONCTIONNEMENT
+══════════════════════════════════════════════════ */
+#fonctionnement { background:linear-gradient(180deg,transparent,rgba(0,20,50,.4),transparent); }
+.chrono { position:relative; padding-left:clamp(24px,4vw,42px); }
+.chrono::before {
+  content:''; position:absolute;
+  left:clamp(6px,1.5vw,11px); top:0; bottom:0; width:2px;
+  background:linear-gradient(180deg,var(--cyan),var(--blue),transparent);
+}
+.etape {
+  position:relative; margin-bottom:28px;
+  padding:clamp(16px,2.5vw,22px) clamp(16px,2.5vw,26px);
+  border:1px solid var(--border); border-radius:10px;
+  background:var(--card); transition:border-color .3s, transform .3s;
+}
+.etape:hover { border-color:var(--cyan); transform:translateX(5px); }
+.etape::before {
+  content:''; position:absolute;
+  left:clamp(-30px,-4vw,-36px); top:50%;
+  transform:translateY(-50%);
+  width:13px; height:13px; border-radius:50%;
+  background:var(--cyan); box-shadow:0 0 12px var(--cyan);
+}
+.etape-num {
+  font-family: var(--font-mono); font-size:.66rem;
+  color:var(--cyan); letter-spacing:.12em; margin-bottom:5px;
+}
+.etape h3 {
+  font-family: var(--font-head); font-size:clamp(.85rem,1.6vw,.97rem);
+  color:#fff; margin-bottom:8px; letter-spacing:0.02em;
+}
+.etape p { font-family: var(--font-body); font-size:clamp(.88rem,1.5vw,.95rem); color:var(--muted); line-height:1.8; font-weight:400; }
+
+/* ══════════════════════════════════════════════════
+   DÉTECTION D'OBSTACLES
+══════════════════════════════════════════════════ */
+#detection { background:rgba(0,5,15,.6); }
+.zones-distance {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%,220px),1fr));
+  gap:clamp(14px,2.5vw,22px);
+  margin-bottom:clamp(24px,4vw,40px);
+}
+.zone-carte {
+  border-radius:12px; padding:clamp(20px,3.5vw,30px) clamp(14px,2.5vw,20px);
+  text-align:center; border:2px solid transparent;
+  transition:all .4s; cursor:default;
+}
+.zone-carte.verte  { background:rgba(0,255,136,.06);  border-color:rgba(0,255,136,.3); }
+.zone-carte.jaune  { background:rgba(255,224,64,.06);  border-color:rgba(255,224,64,.3); }
+.zone-carte.rouge  { background:rgba(255,51,85,.06);   border-color:rgba(255,51,85,.3); }
+.zone-carte:hover  { transform:scale(1.04); }
+.zone-carte.verte:hover { box-shadow:0 0 30px rgba(0,255,136,.25); }
+.zone-carte.jaune:hover { box-shadow:0 0 30px rgba(255,224,64,.25); }
+.zone-carte.rouge:hover { box-shadow:0 0 30px rgba(255,51,85,.25); }
+
+.cercle-led {
+  width:clamp(44px,6vw,60px); height:clamp(44px,6vw,60px);
+  border-radius:50%; margin:0 auto 14px;
+  animation:pulse-led 2s ease-in-out infinite;
+}
+.cercle-led.verte  { background:radial-gradient(circle,#00ff88,#00aa55); box-shadow:0 0 20px #00ff88; }
+.cercle-led.jaune  { background:radial-gradient(circle,#ffe040,#cc9900); box-shadow:0 0 20px #ffe040; animation-delay:.3s; }
+.cercle-led.rouge  { background:radial-gradient(circle,#ff3355,#cc1133); box-shadow:0 0 20px #ff3355; animation-delay:.6s; }
+@keyframes pulse-led {
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{     opacity:.7; transform:scale(.92); }
+}
+.zone-libelle { font-family: var(--font-head); font-size:clamp(.72rem,1.5vw,.82rem); font-weight:700; margin-bottom:8px; letter-spacing:0.04em; }
+.zone-libelle.verte { color:var(--green); }
+.zone-libelle.jaune { color:var(--yellow); }
+.zone-libelle.rouge { color:var(--red); }
+.zone-dist { font-family: var(--font-mono); font-size:clamp(1rem,2vw,1.15rem); margin-bottom:9px; font-weight:500; }
+.zone-desc { font-family: var(--font-body); font-size:clamp(.84rem,1.4vw,.9rem); color:var(--muted); line-height:1.68; font-weight:400; }
+
+/* Animation voiture */
+.anim-voiture {
+  width:100%; max-width:700px; height:clamp(110px,15vw,160px);
+  border:1px solid var(--border); border-radius:12px;
+  background:rgba(0,15,35,.7); position:relative; overflow:hidden; margin:0 auto;
+}
+.route-ligne {
+  position:absolute; top:50%; left:0; right:0; height:2px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.12) 0,rgba(255,255,255,.12) 28px,transparent 28px,transparent 56px);
+  transform:translateY(-50%);
+}
+.icone-voiture {
+  position:absolute; top:50%; left:clamp(24px,5vw,50px);
+  transform:translateY(-50%); font-size:clamp(2rem,5vw,3.5rem);
+  animation:deplacement 4s ease-in-out infinite;
+}
+.icone-obstacle {
+  position:absolute; top:50%; right:clamp(24px,5vw,60px);
+  transform:translateY(-50%); font-size:clamp(1.8rem,4.5vw,3rem);
+}
+.ondes-radar { position:absolute; top:50%; left:clamp(70px,14vw,115px); transform:translateY(-50%); }
+.onde {
+  position:absolute; border-radius:50%; border:2px solid;
+  animation:expansion-radar 2s ease-out infinite;
+}
+.onde:nth-child(1){ width:clamp(28px,5vw,40px);  height:clamp(28px,5vw,40px);  border-color:var(--green);  animation-delay:0s;   top:calc(-1 * clamp(14px,2.5vw,20px)); left:0; }
+.onde:nth-child(2){ width:clamp(48px,8vw,70px);  height:clamp(48px,8vw,70px);  border-color:var(--yellow); animation-delay:.4s;  top:calc(-1 * clamp(24px,4vw,35px));  left:calc(-1 * clamp(10px,2vw,15px)); }
+.onde:nth-child(3){ width:clamp(70px,11vw,100px);height:clamp(70px,11vw,100px);border-color:var(--red);    animation-delay:.8s;  top:calc(-1 * clamp(35px,6vw,50px));  left:calc(-1 * clamp(21px,3.5vw,30px)); }
+@keyframes expansion-radar { 0%{opacity:.9;transform:scale(.6)} 100%{opacity:0;transform:scale(1.2)} }
+@keyframes deplacement { 0%,100%{left:clamp(24px,5vw,50px)} 50%{left:clamp(40px,8vw,80px)} }
+.legende-anim {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  font-family: var(--font-mono); font-size:clamp(.55rem,1vw,.64rem);
+  color:var(--muted); white-space:nowrap;
+}
+
+/* ══════════════════════════════════════════════════
+   SCHÉMA ÉLECTRONIQUE
+══════════════════════════════════════════════════ */
+#schema { background:rgba(0,5,15,.7); }
+.schema-conteneur {
+  border:1px solid var(--border); border-radius:16px;
+  background:#010d1e; padding:clamp(14px,3vw,30px);
+  overflow:auto; box-shadow:var(--glow);
+}
+.schema-barre {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:16px; padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.pt { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.pt.rouge  { background:#ff3355; }
+.pt.jaune  { background:#ffe040; }
+.pt.verte  { background:#00ff88; }
+.schema-barre-titre {
+  font-family: var(--font-mono); font-size:clamp(.6rem,1.2vw,.68rem);
+  color:var(--muted); flex:1; text-align:center; letter-spacing:0.06em;
+}
+.tableau-connexions { margin-top:36px; overflow-x:auto; }
+table {
+  width:100%; border-collapse:collapse;
+  font-family: var(--font-body); font-size:clamp(.8rem,1.3vw,.88rem);
+}
+thead tr { background:rgba(0,245,255,.08); border-bottom:2px solid rgba(0,245,255,.3); }
+th { padding:clamp(9px,1.5vw,13px) clamp(10px,1.8vw,16px); text-align:left; color:var(--cyan); letter-spacing:.06em; white-space:nowrap; font-family: var(--font-head); font-size:clamp(.66rem,1.2vw,.72rem); font-weight:700; }
+td { padding:clamp(8px,1.3vw,11px) clamp(10px,1.8vw,16px); border-bottom:1px solid var(--border); line-height:1.5; }
+tr:nth-child(even) { background:rgba(255,255,255,.018); }
+td:first-child { color:#fff; font-weight:500; }
+td:nth-child(3) { font-family: var(--font-mono); font-weight:500; font-size:clamp(.75rem,1.2vw,.82rem); }
+
+/* ══════════════════════════════════════════════════
+   SIMULATION
+══════════════════════════════════════════════════ */
+#simulation { background:linear-gradient(135deg,rgba(0,20,50,.3),transparent); }
+.sim-grille {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%,300px),1fr));
+  gap:clamp(24px,4vw,40px); align-items:start;
+}
+.sim-etapes { display:flex; flex-direction:column; gap:14px; }
+.sim-etape {
+  display:flex; gap:14px; align-items:flex-start;
+  padding:clamp(14px,2vw,18px);
+  border:1px solid var(--border); border-radius:10px;
+  background:var(--card); transition:border-color .3s;
+}
+.sim-etape:hover { border-color:var(--cyan); }
+.sim-num {
+  width:32px; height:32px; border-radius:50%; flex-shrink:0;
+  background:rgba(0,245,255,.1); border:1px solid rgba(0,245,255,.3);
+  display:flex; align-items:center; justify-content:center;
+  font-family: var(--font-head); font-size:.74rem; color:var(--cyan);
+}
+.sim-contenu h4 { font-family: var(--font-head); font-size:clamp(.76rem,1.4vw,.82rem); color:#fff; margin-bottom:5px; letter-spacing:0.02em; }
+.sim-contenu p  { font-family: var(--font-body); font-size:clamp(.86rem,1.4vw,.92rem); color:var(--muted); line-height:1.7; font-weight:400; }
+.sim-visuel {
+  border:1px solid var(--border); border-radius:12px;
+  background:var(--card); padding:clamp(20px,4vw,30px); text-align:center;
+}
+.proteus-logo {
+  font-family: var(--font-head); font-size:clamp(1.3rem,3vw,2rem);
+  color:var(--cyan); margin-bottom:14px; text-shadow:var(--glow); letter-spacing:0.05em;
+}
+.badges-proteus {
+  display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:14px;
+}
+.badge-p {
+  padding:5px 13px; border:1px solid var(--border); border-radius:20px;
+  font-family: var(--font-body); font-size:clamp(.72rem,1.1vw,.78rem);
+  font-weight:500; color:var(--muted); background:rgba(0,245,255,.04);
+}
+.terminal-code {
+  background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:8px;
+  padding:clamp(14px,2.5vw,20px); margin:16px 0;
+  font-family: var(--font-mono); font-size:clamp(.72rem,1.2vw,.78rem);
+  color:var(--green); text-align:left; line-height:2;
+  letter-spacing:0.02em;
+}
+.terminal-code .cmt { color:var(--muted); }
+.terminal-code .kw  { color:var(--cyan); font-weight:500; }
+.terminal-code .bl  { color:#5abaff; }
+
+/* ══════════════════════════════════════════════════
+   CONCLUSION
+══════════════════════════════════════════════════ */
+#conclusion {
+  text-align:center;
+  background:linear-gradient(180deg,transparent,rgba(0,30,70,.2),transparent);
+}
+.conclusion-boite {
+  border:1px solid var(--border); border-radius:16px;
+  padding:clamp(36px,6vw,60px) clamp(24px,5vw,50px);
+  background:var(--card); max-width:820px; margin:0 auto;
+  position:relative; overflow:hidden;
+}
+.conclusion-boite::before {
+  content:''; position:absolute; top:-1px; left:20%; right:20%; height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+}
+.conclusion-icone { font-size:clamp(2.5rem,6vw,4rem); margin-bottom:20px; }
+.conclusion-boite h3 {
+  font-family: var(--font-head); font-size:clamp(1rem,2.5vw,1.25rem);
+  color:var(--cyan); margin-bottom:18px; letter-spacing:0.03em;
+}
+.conclusion-boite p { font-family: var(--font-body); font-size:clamp(.92rem,1.6vw,1.02rem); color:var(--muted); line-height:1.85; margin-bottom:14px; font-weight:400; }
+.conclusion-boite p strong { color:var(--text); font-weight:600; }
+.atouts {
+  display:flex; gap:clamp(10px,2vw,20px); justify-content:center;
+  margin-top:28px; flex-wrap:wrap;
+}
+.atout {
+  text-align:center; padding:clamp(12px,2vw,16px) clamp(14px,3vw,24px);
+  border-radius:8px;
+}
+.atout-icone { font-size:clamp(1.2rem,3vw,1.5rem); }
+.atout-label { font-size:clamp(.7rem,1.2vw,.8rem); color:var(--muted); margin-top:4px; }
+
+/* ══════════════════════════════════════════════════
+   PIED DE PAGE
+══════════════════════════════════════════════════ */
+footer {
+  position:relative; z-index:1;
+  border-top:1px solid var(--border);
+  background:rgba(2,11,20,.97);
+  padding:clamp(40px,6vw,60px) clamp(16px,5vw,60px) clamp(28px,4vw,40px);
+  text-align:center;
+}
+.footer-logo {
+  font-family: var(--font-head);
+  font-size:clamp(.85rem,2vw,1.05rem);
+  color:var(--cyan); text-shadow:var(--glow); margin-bottom:10px; letter-spacing:0.05em;
+}
+.footer-sous {
+  font-family: var(--font-mono); font-size:clamp(.62rem,1.2vw,.7rem);
+  color:var(--muted); letter-spacing:.18em; text-transform:uppercase; margin-bottom:22px;
+}
+.equipe {
+  display:flex; flex-wrap:wrap; gap:clamp(10px,2vw,16px);
+  justify-content:center; margin-bottom:36px;
+}
+.membre {
+  border:1px solid var(--border); border-radius:50px;
+  padding:clamp(8px,1.5vw,10px) clamp(16px,3vw,24px);
+  font-family: var(--font-body); font-size:clamp(.88rem,1.6vw,1rem);
+  font-weight:600; color:var(--text); background:var(--card);
+  letter-spacing:.04em; transition:border-color .3s, color .3s;
+}
+.membre:hover { border-color:var(--cyan); color:var(--cyan); }
+.footer-bas {
+  font-family: var(--font-body);
+  font-size:clamp(.72rem,1.2vw,.8rem); color:var(--muted);
+  border-top:1px solid var(--border); padding-top:22px; margin-top:18px;
+  line-height:1.9; font-weight:400;
+}
+.atout-label { font-family: var(--font-body); font-size:clamp(.72rem,1.2vw,.8rem); color:var(--muted); margin-top:5px; font-weight:500; }
+.legende-anim {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  font-family: var(--font-mono); font-size:clamp(.55rem,1vw,.64rem);
+  color:var(--muted); white-space:nowrap;
+}
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+══════════════════════════════════════════════════ */
+@media (max-width:768px) {
+  :root { --nav-h:58px; }
+  .nav-links { display:none; }
+  .burger { display:flex; }
+  .etape::before { left:-27px; }
+  .chrono { padding-left:28px; }
+  .chrono::before { left:7px; }
+}
+@media (max-width:480px) {
+  .hero-stats { gap:10px; }
+  .stat { padding:12px 14px; min-width:80px; }
+  .tableau-connexions table { min-width:500px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     NAVIGATION
+══════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-logo">⚡ SURVEILLANCE AUTO</div>
+  <div class="nav-links">
+    <a href="#accueil">Accueil</a>
+    <a href="#idee">Idée</a>
+    <a href="#composants">Composants</a>
+    <a href="#fonctionnement">Fonctionnement</a>
+    <a href="#detection">Détection</a>
+    <a href="#schema">Schéma</a>
+    <a href="#simulation">Simulation</a>
+    <a href="#conclusion">Conclusion</a>
+  </div>
+  <div class="burger" id="burger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#accueil"      onclick="fermerMenu()">🏠 Accueil</a>
+  <a href="#idee"         onclick="fermerMenu()">💡 Idée du Projet</a>
+  <a href="#composants"   onclick="fermerMenu()">🔧 Composants</a>
+  <a href="#fonctionnement" onclick="fermerMenu()">⚙️ Fonctionnement</a>
+  <a href="#detection"    onclick="fermerMenu()">📡 Détection</a>
+  <a href="#schema"       onclick="fermerMenu()">🗺️ Schéma</a>
+  <a href="#simulation"   onclick="fermerMenu()">🖥️ Simulation</a>
+  <a href="#conclusion"   onclick="fermerMenu()">✅ Conclusion</a>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     ACCUEIL / HERO
+══════════════════════════════════════════════ -->
+<section id="accueil" style="position:relative; z-index:1; max-width:100%;">
+  <div style="position:relative; z-index:2; width:100%;">
+    <div class="hero-badge">▶ PROJET ÉLECTRONIQUE — ARDUINO UNO</div>
+    <h1 class="hero-titre">
+      <span class="ligne1">Système de Surveillance</span>
+      <span class="ligne2">Intelligente de Voiture</span>
+    </h1>
+    <p class="hero-sous">
+      Un système embarqué avancé basé sur Arduino Uno intégrant la détection d'obstacles, la surveillance de température, la gestion du temps réel et la communication Bluetooth pour une conduite plus sûre.
+    </p>
+    <a href="#idee" class="hero-btn">Découvrir le Projet →</a>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">12+</div><div class="stat-label">Composants</div></div>
+      <div class="stat"><div class="stat-num">6</div><div class="stat-label">LEDs d'Alerte</div></div>
+      <div class="stat"><div class="stat-num">2</div><div class="stat-label">Capteurs HC-SR04</div></div>
+      <div class="stat"><div class="stat-num">I2C</div><div class="stat-label">Bus RTC DS3231</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     IDÉE DU PROJET
+══════════════════════════════════════════════ -->
+<section id="idee" class="reveal">
+  <div class="etiquette">// 01 — CONCEPT DU PROJET</div>
+  <h2 class="titre-section">Idée du Projet</h2>
+  <div class="ligne-titre"></div>
+  <div class="idee-grille">
+    <div class="idee-texte">
+      <p>Le <strong>Système de Surveillance Intelligente de Voiture</strong> est un projet électronique embarqué qui transforme un véhicule ordinaire en un système interconnecté et intelligent.</p>
+      <p>Grâce à l'<strong>Arduino Uno</strong> comme cerveau central, le système collecte des données en temps réel depuis plusieurs capteurs et les communique au conducteur via des <strong>LEDs d'alerte</strong>, un <strong>écran LCD 16x2</strong> et une <strong>liaison Bluetooth HC-05</strong>.</p>
+      <p>L'objectif principal est d'<strong>améliorer la sécurité routière</strong>, de prévenir les accidents par détection d'obstacles, de surveiller les conditions à bord du véhicule et d'enregistrer les événements avec un horodatage précis grâce au module RTC.</p>
+    </div>
+    <div class="idee-fonc">
+      <div class="fonc-item">
+        <div class="fonc-icone">🌡️</div>
+        <div class="fonc-contenu"><h4>Surveillance Thermique</h4><p>Capteur LM35 pour la mesure de température en temps réel</p></div>
+      </div>
+      <div class="fonc-item">
+        <div class="fonc-icone">📡</div>
+        <div class="fonc-contenu"><h4>Détection d'Obstacles</h4><p>Deux capteurs HC-SR04 à l'avant et à l'arrière pour la sécurité</p></div>
+      </div>
+      <div class="fonc-item">
+        <div class="fonc-icone">🕐</div>
+        <div class="fonc-contenu"><h4>Horloge Temps Réel</h4><p>Module RTC DS3231 pour l'horodatage précis des événements</p></div>
+      </div>
+      <div class="fonc-item">
+        <div class="fonc-icone">📱</div>
+        <div class="fonc-contenu"><h4>Communication Bluetooth</h4><p>Module HC-05 pour la transmission des données vers smartphone</p></div>
+      </div>
+      <div class="fonc-item">
+        <div class="fonc-icone">🚪</div>
+        <div class="fonc-contenu"><h4>Détection Portes et Feux</h4><p>Interrupteurs pour l'état des portes et des feux du véhicule</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     COMPOSANTS
+══════════════════════════════════════════════ -->
+<section id="composants" class="reveal">
+  <div class="etiquette">// 02 — MATÉRIEL UTILISÉ</div>
+  <h2 class="titre-section">Composants Électroniques</h2>
+  <div class="ligne-titre"></div>
+  <div class="comp-grille">
+
+    <!-- Arduino Uno -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 90 80" width="90" height="80" fill="none">
+          <rect x="10" y="8" width="70" height="64" rx="6" fill="#00878A" stroke="#00aaae" stroke-width="1.5"/>
+          <rect x="16" y="14" width="58" height="46" rx="4" fill="#005f61"/>
+          <circle cx="45" cy="37" r="10" fill="#004446" stroke="#00f5ff" stroke-width="1"/>
+          <text x="45" y="41" text-anchor="middle" fill="#00f5ff" font-size="7" font-family="monospace">UNO</text>
+          <rect x="20" y="18" width="8" height="3" rx="1" fill="#00f5ff" opacity=".7"/>
+          <rect x="32" y="18" width="8" height="3" rx="1" fill="#00f5ff" opacity=".7"/>
+          <rect x="44" y="18" width="8" height="3" rx="1" fill="#00f5ff" opacity=".7"/>
+          <rect x="56" y="18" width="8" height="3" rx="1" fill="#00f5ff" opacity=".7"/>
+          <rect x="20" y="55" width="8" height="3" rx="1" fill="#ffe040" opacity=".7"/>
+          <rect x="32" y="55" width="8" height="3" rx="1" fill="#ffe040" opacity=".7"/>
+          <rect x="44" y="55" width="8" height="3" rx="1" fill="#ffe040" opacity=".7"/>
+          <rect x="56" y="55" width="8" height="3" rx="1" fill="#ffe040" opacity=".7"/>
+          <rect x="6" y="30" width="5" height="20" rx="2" fill="#111" stroke="#333" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">Arduino Uno</div>
+        <div class="comp-desc">Microcontrôleur ATmega328P — cerveau du système. 14 broches numériques, 6 entrées analogiques, 16 MHz.</div>
+        <span class="comp-etiq">ATmega328P</span>
+      </div>
+    </div>
+
+    <!-- LM35 -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 80 80" width="80" height="80" fill="none">
+          <rect x="22" y="18" width="36" height="44" rx="4" fill="#1a1a2e" stroke="#ff8c00" stroke-width="1.5"/>
+          <text x="40" y="42" text-anchor="middle" fill="#ff8c00" font-size="7" font-family="monospace">LM35</text>
+          <text x="40" y="52" text-anchor="middle" fill="#cc6600" font-size="6">🌡️</text>
+          <line x1="30" y1="62" x2="30" y2="72" stroke="#ccc" stroke-width="2"/>
+          <line x1="40" y1="62" x2="40" y2="72" stroke="#ccc" stroke-width="2"/>
+          <line x1="50" y1="62" x2="50" y2="72" stroke="#ccc" stroke-width="2"/>
+          <text x="30" y="78" text-anchor="middle" fill="#888" font-size="5">+</text>
+          <text x="40" y="78" text-anchor="middle" fill="#888" font-size="5">V</text>
+          <text x="50" y="78" text-anchor="middle" fill="#888" font-size="5">-</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">LM35 — Capteur de Température</div>
+        <div class="comp-desc">Capteur linéaire — 10 mV/°C. Mesure la température ambiante connecté à la broche analogique A0.</div>
+        <span class="comp-etiq">A0 — Analogique</span>
+      </div>
+    </div>
+
+    <!-- HC-SR04 -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 100 80" width="100" height="80" fill="none">
+          <rect x="8" y="22" width="84" height="36" rx="4" fill="#0d2137" stroke="#00aaff" stroke-width="1.5"/>
+          <circle cx="28" cy="40" r="12" fill="#1a3550" stroke="#00aaff" stroke-width="1.5"/>
+          <circle cx="28" cy="40" r="6" fill="#003355"/>
+          <circle cx="28" cy="40" r="2" fill="#00f5ff"/>
+          <circle cx="72" cy="40" r="12" fill="#1a3550" stroke="#00aaff" stroke-width="1.5"/>
+          <circle cx="72" cy="40" r="6" fill="#003355"/>
+          <circle cx="72" cy="40" r="2" fill="#00f5ff"/>
+          <text x="50" y="44" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">HC-SR04</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">HC-SR04 — Capteur Ultrasonique</div>
+        <div class="comp-desc">Mesure de distance par ultrasons. Portée 2 cm–400 cm. Capteur AVANT sur D2/D3, ARRIÈRE sur D4/D5.</div>
+        <span class="comp-etiq">Trig + Echo × 2</span>
+      </div>
+    </div>
+
+    <!-- LCD -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 110 80" width="110" height="80" fill="none">
+          <rect x="5" y="15" width="100" height="50" rx="5" fill="#0a1628" stroke="#00f5ff" stroke-width="1.5"/>
+          <rect x="12" y="22" width="86" height="36" rx="3" fill="#003300"/>
+          <rect x="15" y="26" width="80" height="12" rx="2" fill="#004400"/>
+          <rect x="15" y="42" width="80" height="12" rx="2" fill="#004400"/>
+          <text x="55" y="36" text-anchor="middle" fill="#00ff88" font-size="7" font-family="monospace">Temp: 28°C</text>
+          <text x="55" y="52" text-anchor="middle" fill="#00ff88" font-size="7" font-family="monospace">Dist: 45 cm</text>
+          <text x="55" y="10" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">LCD 16×2</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">Afficheur LCD 16×2</div>
+        <div class="comp-desc">Écran alphanumérique 16 colonnes × 2 lignes. Affiche température, distance et heure en temps réel.</div>
+        <span class="comp-etiq">Interface Parallèle</span>
+      </div>
+    </div>
+
+    <!-- HC-05 -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 90 80" width="90" height="80" fill="none">
+          <rect x="15" y="15" width="60" height="50" rx="5" fill="#0d1a2e" stroke="#0060ff" stroke-width="1.5"/>
+          <rect x="22" y="22" width="46" height="36" rx="3" fill="#001433"/>
+          <text x="45" y="44" text-anchor="middle" fill="#0080ff" font-size="8" font-family="monospace">HC-05</text>
+          <text x="45" y="55" text-anchor="middle" fill="#004499" font-size="6" font-family="monospace">BLUETOOTH</text>
+          <path d="M70 32 L80 26 L80 34 L70 40 L80 46 L80 54 L70 48" stroke="#0080ff" stroke-width="2" fill="none" opacity=".8"/>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">HC-05 — Module Bluetooth</div>
+        <div class="comp-desc">Module Bluetooth série pour communication sans fil. Connecté aux broches TX/RX de l'Arduino (D0/D1).</div>
+        <span class="comp-etiq">UART Série</span>
+      </div>
+    </div>
+
+    <!-- RTC DS3231 -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 90 80" width="90" height="80" fill="none">
+          <rect x="10" y="18" width="70" height="44" rx="4" fill="#1a1028" stroke="#9060ff" stroke-width="1.5"/>
+          <rect x="16" y="24" width="58" height="32" rx="3" fill="#0d0820"/>
+          <circle cx="72" cy="50" r="10" fill="#444" stroke="#666" stroke-width="1"/>
+          <text x="45" y="42" text-anchor="middle" fill="#a080ff" font-size="8" font-family="monospace">DS3231</text>
+          <text x="45" y="52" text-anchor="middle" fill="#7050cc" font-size="6" font-family="monospace">12:34:56</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">RTC DS3231</div>
+        <div class="comp-desc">Horloge temps réel haute précision. Communication I2C (SDA → A4, SCL → A5). Inclut batterie de sauvegarde.</div>
+        <span class="comp-etiq">I2C — A4/A5</span>
+      </div>
+    </div>
+
+    <!-- LEDs -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 120 80" width="120" height="80" fill="none">
+          <ellipse cx="20" cy="30" rx="10" ry="12" fill="rgba(0,255,136,.15)" stroke="#00ff88" stroke-width="1.5"/>
+          <ellipse cx="20" cy="26" rx="7" ry="8" fill="#00ff88" opacity=".9"/>
+          <line x1="16" y1="42" x2="16" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <line x1="24" y1="42" x2="24" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <text x="20" y="65" text-anchor="middle" fill="#00ff88" font-size="6">VERT</text>
+          <ellipse cx="60" cy="30" rx="10" ry="12" fill="rgba(255,224,64,.15)" stroke="#ffe040" stroke-width="1.5"/>
+          <ellipse cx="60" cy="26" rx="7" ry="8" fill="#ffe040" opacity=".9"/>
+          <line x1="56" y1="42" x2="56" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <line x1="64" y1="42" x2="64" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <text x="60" y="65" text-anchor="middle" fill="#ffe040" font-size="6">JAUNE</text>
+          <ellipse cx="100" cy="30" rx="10" ry="12" fill="rgba(255,51,85,.15)" stroke="#ff3355" stroke-width="1.5"/>
+          <ellipse cx="100" cy="26" rx="7" ry="8" fill="#ff3355" opacity=".9"/>
+          <line x1="96" y1="42" x2="96" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <line x1="104" y1="42" x2="104" y2="55" stroke="#ccc" stroke-width="1.5"/>
+          <text x="100" y="65" text-anchor="middle" fill="#ff3355" font-size="6">ROUGE</text>
+          <text x="60" y="78" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">× 2 jeux (AV + AR)</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">6 DEL d'Alerte</div>
+        <div class="comp-desc">3 DEL AVANT + 3 DEL ARRIÈRE (Vert/Jaune/Rouge). Avec résistances 220 Ω. Indiquent la distance des obstacles.</div>
+        <span class="comp-etiq">D6 à D11</span>
+      </div>
+    </div>
+
+    <!-- Interrupteurs -->
+    <div class="comp-carte">
+      <div class="comp-image">
+        <svg viewBox="0 0 100 80" width="100" height="80" fill="none">
+          <rect x="10" y="22" width="35" height="20" rx="10" fill="#1a2a3a" stroke="#00f5ff" stroke-width="1.5"/>
+          <circle cx="35" cy="32" r="8" fill="#00f5ff" opacity=".8"/>
+          <text x="27" y="52" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">PORTES</text>
+          <line x1="15" y1="42" x2="15" y2="56" stroke="#ccc" stroke-width="1.5"/>
+          <line x1="40" y1="42" x2="40" y2="56" stroke="#ccc" stroke-width="1.5"/>
+          <rect x="55" y="22" width="35" height="20" rx="10" fill="#1a2a3a" stroke="#ffe040" stroke-width="1.5"/>
+          <circle cx="65" cy="32" r="8" fill="#ffe040" opacity=".7"/>
+          <text x="72" y="52" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">FEUX</text>
+          <line x1="60" y1="42" x2="60" y2="56" stroke="#ccc" stroke-width="1.5"/>
+          <line x1="85" y1="42" x2="85" y2="56" stroke="#ccc" stroke-width="1.5"/>
+          <text x="50" y="68" text-anchor="middle" fill="#5a8aaa" font-size="6" font-family="monospace">INTERRUPTEURS</text>
+        </svg>
+      </div>
+      <div class="comp-corps">
+        <div class="comp-nom">Interrupteurs</div>
+        <div class="comp-desc">Commutateur pour l'état des portes (D12) et l'état des feux du véhicule (D13). Entrées numériques avec résistance pull-up.</div>
+        <span class="comp-etiq">D12 + D13</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     FONCTIONNEMENT
+══════════════════════════════════════════════ -->
+<section id="fonctionnement" class="reveal">
+  <div class="etiquette">// 03 — PRINCIPE DE FONCTIONNEMENT</div>
+  <h2 class="titre-section">Fonctionnement du Système</h2>
+  <div class="ligne-titre"></div>
+  <div class="chrono">
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 01</div>
+      <h3>🌡️ Surveillance de la Température</h3>
+      <p>Le capteur LM35 mesure la température ambiante et envoie une tension analogique proportionnelle (10 mV/°C) vers la broche A0 de l'Arduino. La valeur est convertie numériquement, affichée sur le LCD et transmise via Bluetooth vers le smartphone du conducteur.</p>
+    </div>
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 02</div>
+      <h3>📡 Détection d'Obstacles par Ultrasons</h3>
+      <p>Les deux capteurs HC-SR04 émettent des impulsions ultrasoniques (broche Trig) et mesurent le temps de retour de l'écho (broche Echo). L'Arduino calcule la distance : <em>distance = (durée × vitesse du son) / 2</em>. Le capteur AVANT utilise D2/D3, le capteur ARRIÈRE utilise D4/D5.</p>
+    </div>
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 03</div>
+      <h3>🟢🟡🔴 Alertes par Zones de Distance</h3>
+      <p>En fonction de la distance mesurée, les DEL s'allument selon des seuils définis : DEL Verte (distance supérieure à 50 cm — zone sûre), DEL Jaune (entre 20 et 50 cm — vigilance requise), DEL Rouge (inférieure à 20 cm — danger immédiat). Ce codage couleur intuitif avertit le conducteur sans distraction visuelle excessive.</p>
+    </div>
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 04</div>
+      <h3>🕐 Horodatage en Temps Réel via RTC DS3231</h3>
+      <p>Le module RTC DS3231 communique avec l'Arduino via le bus I2C (SDA → A4, SCL → A5). Il fournit l'heure et la date précises qui sont affichées sur le LCD et associées à chaque événement enregistré, même en cas de coupure d'alimentation grâce à sa pile CR2032 intégrée.</p>
+    </div>
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 05</div>
+      <h3>🚪💡 Détection des Portes et des Feux</h3>
+      <p>Les interrupteurs connectés sur D12 et D13 détectent l'état des portes (ouverte/fermée) et des feux (allumés/éteints). L'Arduino lit ces états numériques et alerte le conducteur via le LCD ou la liaison Bluetooth si une anomalie est détectée (exemple : porte ouverte pendant la conduite).</p>
+    </div>
+    <div class="etape">
+      <div class="etape-num">ÉTAPE 06</div>
+      <h3>📱 Communication Bluetooth via HC-05</h3>
+      <p>Le module HC-05 transmet toutes les données collectées (température, distances avant/arrière, état des portes et des feux, heure actuelle) vers une application smartphone via le protocole Bluetooth série (UART). Le conducteur peut ainsi consulter les informations en temps réel sur son téléphone.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     DÉTECTION D'OBSTACLES
+══════════════════════════════════════════════ -->
+<section id="detection" class="reveal">
+  <div class="etiquette">// 04 — SYSTÈME D'ALERTE PAR DISTANCE</div>
+  <h2 class="titre-section">Détection d'Obstacles</h2>
+  <div class="ligne-titre"></div>
+
+  <div class="zones-distance">
+    <div class="zone-carte verte">
+      <div class="cercle-led verte"></div>
+      <div class="zone-libelle verte">DEL VERTE</div>
+      <div class="zone-dist" style="color:var(--green)">Distance &gt; 50 cm</div>
+      <div class="zone-desc">Zone de sécurité. Aucun obstacle proche. Conduite normale. La DEL verte s'allume en continu pour rassurer le conducteur.</div>
+    </div>
+    <div class="zone-carte jaune">
+      <div class="cercle-led jaune"></div>
+      <div class="zone-libelle jaune">DEL JAUNE</div>
+      <div class="zone-dist" style="color:var(--yellow)">20 cm ≤ D ≤ 50 cm</div>
+      <div class="zone-desc">Zone de vigilance. Un obstacle est détecté à distance modérée. Le conducteur doit ralentir et rester attentif.</div>
+    </div>
+    <div class="zone-carte rouge">
+      <div class="cercle-led rouge"></div>
+      <div class="zone-libelle rouge">DEL ROUGE</div>
+      <div class="zone-dist" style="color:var(--red)">Distance &lt; 20 cm</div>
+      <div class="zone-desc">Zone de danger ! Obstacle très proche, arrêt immédiat requis. Alerte visuelle maximale pour prévenir une collision.</div>
+    </div>
+  </div>
+
+  <div class="anim-voiture">
+    <div class="route-ligne"></div>
+    <div class="icone-voiture">🚗</div>
+    <div class="ondes-radar">
+      <div class="onde"></div>
+      <div class="onde"></div>
+      <div class="onde"></div>
+    </div>
+    <div class="icone-obstacle">🧱</div>
+    <div class="legende-anim">▶ ANIMATION — DÉTECTION EN TEMPS RÉEL PAR ULTRASONS</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     SCHÉMA ÉLECTRONIQUE
+══════════════════════════════════════════════ -->
+<section id="schema" class="reveal">
+  <div class="etiquette">// 05 — SCHÉMA ÉLECTRONIQUE</div>
+  <h2 class="titre-section">Schéma du Circuit</h2>
+  <div class="ligne-titre"></div>
+
+  <div class="schema-conteneur">
+    <div class="schema-barre">
+      <div class="pt rouge"></div>
+      <div class="pt jaune"></div>
+      <div class="pt verte"></div>
+      <div class="schema-barre-titre">SYSTÈME DE SURVEILLANCE INTELLIGENTE DE VOITURE — STYLE PROTEUS ISIS — Arduino Uno R3</div>
+    </div>
+
+    <!-- SVG SCHÉMA COMPLET -->
+    <svg viewBox="0 0 1100 780" width="100%" xmlns="http://www.w3.org/2000/svg" style="font-family:'Share Tech Mono',monospace; min-width:600px; display:block; margin:0 auto;">
+      <defs>
+        <filter id="lueur">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Fond avec grille -->
+      <rect width="1100" height="780" fill="#010d1e" rx="8"/>
+      <g opacity=".05" stroke="#00f5ff" stroke-width=".5">
+        <line x1="0" y1="40" x2="1100" y2="40"/><line x1="0" y1="80" x2="1100" y2="80"/>
+        <line x1="0" y1="120" x2="1100" y2="120"/><line x1="0" y1="160" x2="1100" y2="160"/>
+        <line x1="0" y1="200" x2="1100" y2="200"/><line x1="0" y1="240" x2="1100" y2="240"/>
+        <line x1="0" y1="280" x2="1100" y2="280"/><line x1="0" y1="320" x2="1100" y2="320"/>
+        <line x1="0" y1="360" x2="1100" y2="360"/><line x1="0" y1="400" x2="1100" y2="400"/>
+        <line x1="0" y1="440" x2="1100" y2="440"/><line x1="0" y1="480" x2="1100" y2="480"/>
+        <line x1="0" y1="520" x2="1100" y2="520"/><line x1="0" y1="560" x2="1100" y2="560"/>
+        <line x1="0" y1="600" x2="1100" y2="600"/><line x1="0" y1="640" x2="1100" y2="640"/>
+        <line x1="0" y1="680" x2="1100" y2="680"/><line x1="0" y1="720" x2="1100" y2="720"/>
+        <line x1="0" y1="760" x2="1100" y2="760"/>
+        <line x1="40" y1="0" x2="40" y2="780"/><line x1="80" y1="0" x2="80" y2="780"/>
+        <line x1="120" y1="0" x2="120" y2="780"/><line x1="160" y1="0" x2="160" y2="780"/>
+        <line x1="200" y1="0" x2="200" y2="780"/><line x1="240" y1="0" x2="240" y2="780"/>
+        <line x1="280" y1="0" x2="280" y2="780"/><line x1="320" y1="0" x2="320" y2="780"/>
+        <line x1="360" y1="0" x2="360" y2="780"/><line x1="400" y1="0" x2="400" y2="780"/>
+        <line x1="440" y1="0" x2="440" y2="780"/><line x1="480" y1="0" x2="480" y2="780"/>
+        <line x1="520" y1="0" x2="520" y2="780"/><line x1="560" y1="0" x2="560" y2="780"/>
+        <line x1="600" y1="0" x2="600" y2="780"/><line x1="640" y1="0" x2="640" y2="780"/>
+        <line x1="680" y1="0" x2="680" y2="780"/><line x1="720" y1="0" x2="720" y2="780"/>
+        <line x1="760" y1="0" x2="760" y2="780"/><line x1="800" y1="0" x2="800" y2="780"/>
+        <line x1="840" y1="0" x2="840" y2="780"/><line x1="880" y1="0" x2="880" y2="780"/>
+        <line x1="920" y1="0" x2="920" y2="780"/><line x1="960" y1="0" x2="960" y2="780"/>
+        <line x1="1000" y1="0" x2="1000" y2="780"/><line x1="1040" y1="0" x2="1040" y2="780"/>
+        <line x1="1080" y1="0" x2="1080" y2="780"/>
+      </g>
+
+      <!-- ─── ARDUINO UNO (centre) ─── -->
+      <rect x="400" y="285" width="200" height="265" rx="8" fill="#005f61" stroke="#00f5ff" stroke-width="2" filter="url(#lueur)"/>
+      <rect x="408" y="293" width="184" height="249" rx="5" fill="#004446"/>
+      <rect x="415" y="300" width="170" height="3" rx="1" fill="#00878A" opacity=".5"/>
+      <rect x="440" y="368" width="80" height="104" rx="4" fill="#111" stroke="#333" stroke-width="1"/>
+      <text x="480" y="416" text-anchor="middle" fill="#00f5ff" font-size="8" font-weight="bold">ATmega</text>
+      <text x="480" y="428" text-anchor="middle" fill="#00f5ff" font-size="8" font-weight="bold">328P</text>
+      <rect x="392" y="476" width="10" height="24" rx="2" fill="#222" stroke="#555"/>
+      <text x="500" y="316" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="bold" filter="url(#lueur)">ARDUINO UNO</text>
+      <text x="500" y="330" text-anchor="middle" fill="#5a8aaa" font-size="7">MICROCONTRÔLEUR CENTRAL</text>
+      <!-- Broches gauche -->
+      <text x="415" y="348" fill="#ffe040" font-size="6">D0 (RX)</text>
+      <text x="415" y="360" fill="#ffe040" font-size="6">D1 (TX)</text>
+      <text x="415" y="372" fill="#00f5ff" font-size="6">D2 (TRIG AV)</text>
+      <text x="415" y="384" fill="#00f5ff" font-size="6">D3 (ECHO AV)</text>
+      <text x="415" y="396" fill="#00ff88" font-size="6">D4 (TRIG AR)</text>
+      <text x="415" y="408" fill="#00ff88" font-size="6">D5 (ECHO AR)</text>
+      <text x="415" y="420" fill="#00ff88" font-size="6">D6 (DEL V AV)</text>
+      <text x="415" y="432" fill="#ffe040" font-size="6">D7 (DEL J AV)</text>
+      <text x="415" y="444" fill="#ff3355" font-size="6">D8 (DEL R AV)</text>
+      <!-- Broches droite -->
+      <text x="585" y="348" fill="#00ff88" font-size="6" text-anchor="end">D9 (DEL V AR)</text>
+      <text x="585" y="360" fill="#ffe040" font-size="6" text-anchor="end">D10 (DEL J AR)</text>
+      <text x="585" y="372" fill="#ff3355" font-size="6" text-anchor="end">D11 (DEL R AR)</text>
+      <text x="585" y="384" fill="#00f5ff" font-size="6" text-anchor="end">D12 (PORTE)</text>
+      <text x="585" y="396" fill="#00f5ff" font-size="6" text-anchor="end">D13 (FEUX)</text>
+      <text x="585" y="420" fill="#ff8c00" font-size="6" text-anchor="end">A0 (LM35)</text>
+      <text x="585" y="432" fill="#9060ff" font-size="6" text-anchor="end">A4 (SDA)</text>
+      <text x="585" y="444" fill="#9060ff" font-size="6" text-anchor="end">A5 (SCL)</text>
+      <!-- Points broches gauche -->
+      <circle cx="402" cy="346" r="3" fill="#ffe040"/><line x1="402" y1="346" x2="415" y2="346" stroke="#ffe040" stroke-width="1"/>
+      <circle cx="402" cy="358" r="3" fill="#ffe040"/><line x1="402" y1="358" x2="415" y2="358" stroke="#ffe040" stroke-width="1"/>
+      <circle cx="402" cy="370" r="3" fill="#00f5ff"/><line x1="402" y1="370" x2="415" y2="370" stroke="#00f5ff" stroke-width="1"/>
+      <circle cx="402" cy="382" r="3" fill="#00f5ff"/><line x1="402" y1="382" x2="415" y2="382" stroke="#00f5ff" stroke-width="1"/>
+      <circle cx="402" cy="394" r="3" fill="#00ff88"/><line x1="402" y1="394" x2="415" y2="394" stroke="#00ff88" stroke-width="1"/>
+      <circle cx="402" cy="406" r="3" fill="#00ff88"/><line x1="402" y1="406" x2="415" y2="406" stroke="#00ff88" stroke-width="1"/>
+      <circle cx="402" cy="418" r="3" fill="#00ff88"/><line x1="402" y1="418" x2="415" y2="418" stroke="#00ff88" stroke-width="1"/>
+      <circle cx="402" cy="430" r="3" fill="#ffe040"/><line x1="402" y1="430" x2="415" y2="430" stroke="#ffe040" stroke-width="1"/>
+      <circle cx="402" cy="442" r="3" fill="#ff3355"/><line x1="402" y1="442" x2="415" y2="442" stroke="#ff3355" stroke-width="1"/>
+      <!-- Points broches droite -->
+      <circle cx="598" cy="346" r="3" fill="#00ff88"/><line x1="585" y1="346" x2="598" y2="346" stroke="#00ff88" stroke-width="1"/>
+      <circle cx="598" cy="358" r="3" fill="#ffe040"/><line x1="585" y1="358" x2="598" y2="358" stroke="#ffe040" stroke-width="1"/>
+      <circle cx="598" cy="370" r="3" fill="#ff3355"/><line x1="585" y1="370" x2="598" y2="370" stroke="#ff3355" stroke-width="1"/>
+      <circle cx="598" cy="382" r="3" fill="#00f5ff"/><line x1="585" y1="382" x2="598" y2="382" stroke="#00f5ff" stroke-width="1"/>
+      <circle cx="598" cy="394" r="3" fill="#00f5ff"/><line x1="585" y1="394" x2="598" y2="394" stroke="#00f5ff" stroke-width="1"/>
+      <circle cx="598" cy="418" r="3" fill="#ff8c00"/><line x1="585" y1="418" x2="598" y2="418" stroke="#ff8c00" stroke-width="1"/>
+      <circle cx="598" cy="430" r="3" fill="#9060ff"/><line x1="585" y1="430" x2="598" y2="430" stroke="#9060ff" stroke-width="1"/>
+      <circle cx="598" cy="442" r="3" fill="#9060ff"/><line x1="585" y1="442" x2="598" y2="442" stroke="#9060ff" stroke-width="1"/>
+
+      <!-- ─── HC-SR04 AVANT (haut gauche) ─── -->
+      <rect x="40" y="60" width="155" height="82" rx="6" fill="#0d2137" stroke="#00aaff" stroke-width="1.5"/>
+      <text x="118" y="78" text-anchor="middle" fill="#00f5ff" font-size="8" font-weight="bold">HC-SR04 AVANT</text>
+      <text x="118" y="90" text-anchor="middle" fill="#5a8aaa" font-size="7">Détection Obstacles</text>
+      <circle cx="74" cy="115" r="13" fill="#1a3550" stroke="#00aaff" stroke-width="1.5"/><circle cx="74" cy="115" r="7" fill="#003355"/><circle cx="74" cy="115" r="2.5" fill="#00f5ff"/>
+      <circle cx="162" cy="115" r="13" fill="#1a3550" stroke="#00aaff" stroke-width="1.5"/><circle cx="162" cy="115" r="7" fill="#003355"/><circle cx="162" cy="115" r="2.5" fill="#00f5ff"/>
+      <line x1="60" y1="142" x2="60" y2="154" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="80" y1="142" x2="80" y2="154" stroke="#666" stroke-width="1.5"/>
+      <line x1="100" y1="142" x2="100" y2="154" stroke="#00f5ff" stroke-width="1.5"/>
+      <line x1="120" y1="142" x2="120" y2="154" stroke="#00ff88" stroke-width="1.5"/>
+      <text x="60" y="162" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="80" y="162" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <text x="100" y="162" fill="#00f5ff" font-size="5" text-anchor="middle">TRIG</text>
+      <text x="120" y="162" fill="#00ff88" font-size="5" text-anchor="middle">ECHO</text>
+      <!-- Fils → D2/D3 -->
+      <polyline points="100,162 100,202 252,202 252,370 402,370" fill="none" stroke="#00f5ff" stroke-width="1.5" stroke-dasharray="6,3" opacity=".85"/>
+      <polyline points="120,162 120,212 262,212 262,382 402,382" fill="none" stroke="#00f5ff" stroke-width="1.5" stroke-dasharray="6,3" opacity=".6"/>
+      <text x="200" y="198" fill="#00f5ff" font-size="6">TRIG→D2</text>
+      <text x="200" y="210" fill="#00aaff" font-size="6">ECHO→D3</text>
+
+      <!-- ─── HC-SR04 ARRIÈRE (bas gauche) ─── -->
+      <rect x="40" y="618" width="155" height="82" rx="6" fill="#0d2137" stroke="#00ff88" stroke-width="1.5"/>
+      <text x="118" y="636" text-anchor="middle" fill="#00ff88" font-size="8" font-weight="bold">HC-SR04 ARRIÈRE</text>
+      <text x="118" y="648" text-anchor="middle" fill="#5a8aaa" font-size="7">Détection Obstacles</text>
+      <circle cx="74" cy="673" r="13" fill="#1a3550" stroke="#00ff88" stroke-width="1.5"/><circle cx="74" cy="673" r="7" fill="#003355"/><circle cx="74" cy="673" r="2.5" fill="#00ff88"/>
+      <circle cx="162" cy="673" r="13" fill="#1a3550" stroke="#00ff88" stroke-width="1.5"/><circle cx="162" cy="673" r="7" fill="#003355"/><circle cx="162" cy="673" r="2.5" fill="#00ff88"/>
+      <line x1="60" y1="700" x2="60" y2="712" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="80" y1="700" x2="80" y2="712" stroke="#666" stroke-width="1.5"/>
+      <line x1="100" y1="700" x2="100" y2="712" stroke="#00ff88" stroke-width="1.5"/>
+      <line x1="120" y1="700" x2="120" y2="712" stroke="#00aa55" stroke-width="1.5"/>
+      <text x="60" y="720" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="80" y="720" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <text x="100" y="720" fill="#00ff88" font-size="5" text-anchor="middle">TRIG</text>
+      <text x="120" y="720" fill="#00aa55" font-size="5" text-anchor="middle">ECHO</text>
+      <!-- Fils → D4/D5 -->
+      <polyline points="100,618 100,578 272,578 272,394 402,394" fill="none" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="6,3" opacity=".85"/>
+      <polyline points="120,618 120,588 282,588 282,406 402,406" fill="none" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="6,3" opacity=".6"/>
+      <text x="200" y="576" fill="#00ff88" font-size="6">TRIG→D4</text>
+      <text x="200" y="588" fill="#00aa55" font-size="6">ECHO→D5</text>
+
+      <!-- ─── LCD 16x2 (haut centre) ─── -->
+      <rect x="330" y="40" width="200" height="100" rx="6" fill="#0a1628" stroke="#00f5ff" stroke-width="1.5"/>
+      <text x="430" y="56" text-anchor="middle" fill="#00f5ff" font-size="8" font-weight="bold">AFFICHEUR LCD 16×2</text>
+      <rect x="340" y="62" width="180" height="50" rx="3" fill="#003300"/>
+      <rect x="344" y="66" width="172" height="18" rx="2" fill="#004400"/>
+      <rect x="344" y="87" width="172" height="18" rx="2" fill="#004400"/>
+      <text x="430" y="79" text-anchor="middle" fill="#00ff88" font-size="7">Temp: 28°C    12:34:56</text>
+      <text x="430" y="100" text-anchor="middle" fill="#00ff88" font-size="7">AV: 45cm       AR: 80cm</text>
+      <line x1="360" y1="140" x2="360" y2="155" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="375" y1="140" x2="375" y2="155" stroke="#666" stroke-width="1.5"/>
+      <line x1="390" y1="140" x2="390" y2="155" stroke="#aaa" stroke-width="1.5"/>
+      <line x1="405" y1="140" x2="405" y2="155" stroke="#aaa" stroke-width="1.5"/>
+      <line x1="420" y1="140" x2="420" y2="155" stroke="#4488ff" stroke-width="1.5"/>
+      <line x1="435" y1="140" x2="435" y2="155" stroke="#4488ff" stroke-width="1.5"/>
+      <line x1="450" y1="140" x2="450" y2="155" stroke="#4488ff" stroke-width="1.5"/>
+      <line x1="465" y1="140" x2="465" y2="155" stroke="#4488ff" stroke-width="1.5"/>
+      <text x="360" y="163" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="375" y="163" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <text x="390" y="163" fill="#aaa" font-size="5" text-anchor="middle">RS</text>
+      <text x="405" y="163" fill="#aaa" font-size="5" text-anchor="middle">EN</text>
+      <text x="420" y="163" fill="#4488ff" font-size="5" text-anchor="middle">DB4</text>
+      <text x="435" y="163" fill="#4488ff" font-size="5" text-anchor="middle">DB5</text>
+      <text x="450" y="163" fill="#4488ff" font-size="5" text-anchor="middle">DB6</text>
+      <text x="465" y="163" fill="#4488ff" font-size="5" text-anchor="middle">DB7</text>
+      <polyline points="430,168 430,215 470,215 470,285" fill="none" stroke="#0080ff" stroke-width="1.2" stroke-dasharray="4,3" opacity=".6"/>
+      <text x="445" y="185" fill="#0080ff" font-size="6">LCD→Broches D</text>
+
+      <!-- ─── HC-05 BLUETOOTH (haut droite) ─── -->
+      <rect x="780" y="60" width="140" height="115" rx="6" fill="#0d1a2e" stroke="#0060ff" stroke-width="1.5"/>
+      <text x="850" y="78" text-anchor="middle" fill="#0080ff" font-size="8" font-weight="bold">HC-05</text>
+      <text x="850" y="90" text-anchor="middle" fill="#5a8aaa" font-size="7">MODULE BLUETOOTH</text>
+      <rect x="792" y="96" width="110" height="52" rx="3" fill="#001433"/>
+      <text x="842" y="122" text-anchor="middle" fill="#0060ff" font-size="7">TX ←→ RX</text>
+      <text x="842" y="134" text-anchor="middle" fill="#004499" font-size="6">UART Série</text>
+      <path d="M875 98 L880 95 L880 108 L875 112 L880 116 L880 129 L875 126" stroke="#0080ff" stroke-width="1.5" fill="none" opacity=".7"/>
+      <line x1="800" y1="148" x2="800" y2="163" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="815" y1="148" x2="815" y2="163" stroke="#666" stroke-width="1.5"/>
+      <line x1="830" y1="148" x2="830" y2="163" stroke="#ffe040" stroke-width="1.5"/>
+      <line x1="845" y1="148" x2="845" y2="163" stroke="#ffe040" stroke-width="1.5"/>
+      <text x="800" y="171" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="815" y="171" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <text x="830" y="171" fill="#ffe040" font-size="5" text-anchor="middle">TX</text>
+      <text x="845" y="171" fill="#ffe040" font-size="5" text-anchor="middle">RX</text>
+      <!-- Fils → D0/D1 -->
+      <polyline points="830,173 830,222 390,222 390,346 402,346" fill="none" stroke="#ffe040" stroke-width="1.2" stroke-dasharray="5,3" opacity=".75"/>
+      <polyline points="845,173 845,232 380,232 380,358 402,358" fill="none" stroke="#ffe040" stroke-width="1.2" stroke-dasharray="5,3" opacity=".5"/>
+      <text x="620" y="220" fill="#ffe040" font-size="6">HC05-TX → D0</text>
+      <text x="620" y="230" fill="#cc9900" font-size="6">HC05-RX → D1</text>
+
+      <!-- ─── RTC DS3231 (bas droite) ─── -->
+      <rect x="800" y="578" width="160" height="104" rx="6" fill="#1a1028" stroke="#9060ff" stroke-width="1.5"/>
+      <text x="880" y="596" text-anchor="middle" fill="#a080ff" font-size="8" font-weight="bold">RTC DS3231</text>
+      <text x="880" y="608" text-anchor="middle" fill="#5a8aaa" font-size="7">Horloge Temps Réel</text>
+      <rect x="810" y="614" width="130" height="48" rx="3" fill="#0d0820"/>
+      <circle cx="922" cy="652" r="16" fill="#444" stroke="#666" stroke-width="1.5"/>
+      <circle cx="922" cy="652" r="12" fill="#333"/>
+      <text x="922" y="656" text-anchor="middle" fill="#888" font-size="6">CR2032</text>
+      <text x="855" y="632" fill="#a080ff" font-size="7" text-anchor="middle">12:34:56</text>
+      <text x="855" y="648" fill="#7050cc" font-size="6" text-anchor="middle">Bus I2C</text>
+      <line x1="820" y1="682" x2="820" y2="697" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="835" y1="682" x2="835" y2="697" stroke="#666" stroke-width="1.5"/>
+      <line x1="850" y1="682" x2="850" y2="697" stroke="#9060ff" stroke-width="1.5"/>
+      <line x1="865" y1="682" x2="865" y2="697" stroke="#6040cc" stroke-width="1.5"/>
+      <text x="820" y="705" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="835" y="705" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <text x="850" y="705" fill="#9060ff" font-size="5" text-anchor="middle">SDA</text>
+      <text x="865" y="705" fill="#6040cc" font-size="5" text-anchor="middle">SCL</text>
+      <!-- Fils I2C → A4/A5 -->
+      <polyline points="850,697 850,742 598,742 598,430" fill="none" stroke="#9060ff" stroke-width="1.5" stroke-dasharray="5,3" opacity=".8"/>
+      <polyline points="865,697 865,752 608,752 608,442" fill="none" stroke="#6040cc" stroke-width="1.5" stroke-dasharray="5,3" opacity=".6"/>
+      <text x="720" y="740" fill="#9060ff" font-size="6">SDA → A4 (I2C)</text>
+      <text x="720" y="752" fill="#6040cc" font-size="6">SCL → A5 (I2C)</text>
+
+      <!-- ─── LM35 TEMPÉRATURE (droite centre) ─── -->
+      <rect x="800" y="285" width="120" height="104" rx="6" fill="#1a1a2e" stroke="#ff8c00" stroke-width="1.5"/>
+      <text x="860" y="303" text-anchor="middle" fill="#ff8c00" font-size="8" font-weight="bold">LM35</text>
+      <text x="860" y="315" text-anchor="middle" fill="#5a8aaa" font-size="7">Capteur Température</text>
+      <rect x="820" y="322" width="80" height="48" rx="4" fill="#111" stroke="#ff8c00" stroke-width="1"/>
+      <text x="860" y="350" text-anchor="middle" fill="#ff8c00" font-size="22">🌡️</text>
+      <text x="860" y="366" text-anchor="middle" fill="#cc6600" font-size="7">28.5°C</text>
+      <line x1="830" y1="389" x2="830" y2="404" stroke="#ff8c00" stroke-width="1.5"/>
+      <line x1="860" y1="389" x2="860" y2="404" stroke="#ff6600" stroke-width="1.5"/>
+      <line x1="890" y1="389" x2="890" y2="404" stroke="#666" stroke-width="1.5"/>
+      <text x="830" y="412" fill="#ff8c00" font-size="5" text-anchor="middle">VCC</text>
+      <text x="860" y="412" fill="#ff6600" font-size="5" text-anchor="middle">VOUT</text>
+      <text x="890" y="412" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <!-- Fil → A0 -->
+      <polyline points="860,414 860,418 598,418" fill="none" stroke="#ff8c00" stroke-width="1.5" stroke-dasharray="5,3" opacity=".85"/>
+      <text x="726" y="416" fill="#ff8c00" font-size="6">VOUT → A0</text>
+
+      <!-- ─── DEL AVANT gauche ─── -->
+      <text x="248" y="258" text-anchor="middle" fill="#888" font-size="7" font-weight="bold">DEL AVANT</text>
+      <!-- Verte -->
+      <ellipse cx="196" cy="290" rx="10" ry="12" fill="rgba(0,255,136,.15)" stroke="#00ff88" stroke-width="1.5"/>
+      <ellipse cx="196" cy="286" rx="7" ry="8" fill="#00ff88" opacity=".85" filter="url(#lueur)"/>
+      <rect x="203" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <text x="224" y="292" fill="#888" font-size="5">220Ω</text>
+      <line x1="186" y1="302" x2="186" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="206" y1="302" x2="206" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="196" y="332" fill="#00ff88" font-size="6" text-anchor="middle">VERT</text>
+      <text x="196" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D6</text>
+      <polyline points="186,322 186,362 310,362 310,418 402,418" fill="none" stroke="#00ff88" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+      <!-- Jaune -->
+      <ellipse cx="248" cy="290" rx="10" ry="12" fill="rgba(255,224,64,.15)" stroke="#ffe040" stroke-width="1.5"/>
+      <ellipse cx="248" cy="286" rx="7" ry="8" fill="#ffe040" opacity=".85"/>
+      <rect x="255" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <text x="276" y="292" fill="#888" font-size="5">220Ω</text>
+      <line x1="238" y1="302" x2="238" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="258" y1="302" x2="258" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="248" y="332" fill="#ffe040" font-size="6" text-anchor="middle">JAUNE</text>
+      <text x="248" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D7</text>
+      <polyline points="238,322 238,372 320,372 320,430 402,430" fill="none" stroke="#ffe040" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+      <!-- Rouge -->
+      <ellipse cx="300" cy="290" rx="10" ry="12" fill="rgba(255,51,85,.15)" stroke="#ff3355" stroke-width="1.5"/>
+      <ellipse cx="300" cy="286" rx="7" ry="8" fill="#ff3355" opacity=".85"/>
+      <rect x="307" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <text x="328" y="292" fill="#888" font-size="5">220Ω</text>
+      <line x1="290" y1="302" x2="290" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="310" y1="302" x2="310" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="300" y="332" fill="#ff3355" font-size="6" text-anchor="middle">ROUGE</text>
+      <text x="300" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D8</text>
+      <polyline points="290,322 290,382 330,382 330,442 402,442" fill="none" stroke="#ff3355" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+
+      <!-- ─── DEL ARRIÈRE droite ─── -->
+      <text x="726" y="258" text-anchor="middle" fill="#888" font-size="7" font-weight="bold">DEL ARRIÈRE</text>
+      <!-- Verte -->
+      <ellipse cx="676" cy="290" rx="10" ry="12" fill="rgba(0,255,136,.15)" stroke="#00ff88" stroke-width="1.5"/>
+      <ellipse cx="676" cy="286" rx="7" ry="8" fill="#00ff88" opacity=".85" filter="url(#lueur)"/>
+      <rect x="656" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <line x1="666" y1="302" x2="666" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="686" y1="302" x2="686" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="676" y="332" fill="#00ff88" font-size="6" text-anchor="middle">VERT</text>
+      <text x="676" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D9</text>
+      <polyline points="666,322 666,346 598,346" fill="none" stroke="#00ff88" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+      <!-- Jaune -->
+      <ellipse cx="728" cy="290" rx="10" ry="12" fill="rgba(255,224,64,.15)" stroke="#ffe040" stroke-width="1.5"/>
+      <ellipse cx="728" cy="286" rx="7" ry="8" fill="#ffe040" opacity=".85"/>
+      <rect x="708" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <line x1="718" y1="302" x2="718" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="738" y1="302" x2="738" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="728" y="332" fill="#ffe040" font-size="6" text-anchor="middle">JAUNE</text>
+      <text x="728" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D10</text>
+      <polyline points="718,322 718,358 598,358" fill="none" stroke="#ffe040" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+      <!-- Rouge -->
+      <ellipse cx="778" cy="290" rx="10" ry="12" fill="rgba(255,51,85,.15)" stroke="#ff3355" stroke-width="1.5"/>
+      <ellipse cx="778" cy="286" rx="7" ry="8" fill="#ff3355" opacity=".85"/>
+      <rect x="758" y="288" width="20" height="4" rx="2" fill="#888" opacity=".6"/>
+      <line x1="768" y1="302" x2="768" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <line x1="788" y1="302" x2="788" y2="322" stroke="#ccc" stroke-width="1.5"/>
+      <text x="778" y="332" fill="#ff3355" font-size="6" text-anchor="middle">ROUGE</text>
+      <text x="778" y="341" fill="#5a8aaa" font-size="5" text-anchor="middle">D11</text>
+      <polyline points="768,322 768,370 598,370" fill="none" stroke="#ff3355" stroke-width="1.2" stroke-dasharray="4,2" opacity=".7"/>
+
+      <!-- ─── INTERRUPTEURS (bas centre) ─── -->
+      <rect x="338" y="678" width="100" height="52" rx="6" fill="#0a1a2a" stroke="#00f5ff" stroke-width="1.5"/>
+      <text x="388" y="696" text-anchor="middle" fill="#00f5ff" font-size="7" font-weight="bold">SW PORTE</text>
+      <rect x="353" y="702" width="70" height="16" rx="8" fill="#0d2a40"/>
+      <circle cx="400" cy="710" r="6" fill="#00f5ff" opacity=".8"/>
+      <line x1="358" y1="730" x2="358" y2="745" stroke="#00f5ff" stroke-width="1.5"/>
+      <line x1="418" y1="730" x2="418" y2="745" stroke="#666" stroke-width="1.5"/>
+      <text x="358" y="754" fill="#00f5ff" font-size="5" text-anchor="middle">D12</text>
+      <text x="418" y="754" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <polyline points="358,745 358,762 500,762 500,550 402,550" fill="none" stroke="#00f5ff" stroke-width="1.2" stroke-dasharray="4,2" opacity=".6"/>
+
+      <rect x="462" y="678" width="100" height="52" rx="6" fill="#0a1a2a" stroke="#ffe040" stroke-width="1.5"/>
+      <text x="512" y="696" text-anchor="middle" fill="#ffe040" font-size="7" font-weight="bold">SW FEUX</text>
+      <rect x="477" y="702" width="70" height="16" rx="8" fill="#2a2000"/>
+      <circle cx="510" cy="710" r="6" fill="#ffe040" opacity=".8"/>
+      <line x1="482" y1="730" x2="482" y2="745" stroke="#ffe040" stroke-width="1.5"/>
+      <line x1="542" y1="730" x2="542" y2="745" stroke="#666" stroke-width="1.5"/>
+      <text x="482" y="754" fill="#ffe040" font-size="5" text-anchor="middle">D13</text>
+      <text x="542" y="754" fill="#666" font-size="5" text-anchor="middle">GND</text>
+      <polyline points="482,745 482,772 520,772 520,558 402,558" fill="none" stroke="#ffe040" stroke-width="1.2" stroke-dasharray="4,2" opacity=".6"/>
+
+      <!-- ─── LÉGENDE ─── -->
+      <rect x="868" y="172" width="214" height="108" rx="6" fill="rgba(0,10,25,.92)" stroke="#222" stroke-width="1"/>
+      <text x="975" y="190" text-anchor="middle" fill="#5a8aaa" font-size="7" font-weight="bold">LÉGENDE DES FILS</text>
+      <line x1="882" y1="203" x2="918" y2="203" stroke="#00f5ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="928" y="206" fill="#00f5ff" font-size="6">Signal numérique</text>
+      <line x1="882" y1="218" x2="918" y2="218" stroke="#ff8c00" stroke-width="1.5"/>
+      <text x="928" y="221" fill="#ff8c00" font-size="6">Alimentation 5V</text>
+      <line x1="882" y1="233" x2="918" y2="233" stroke="#666" stroke-width="1.5"/>
+      <text x="928" y="236" fill="#666" font-size="6">Masse (GND)</text>
+      <line x1="882" y1="248" x2="918" y2="248" stroke="#9060ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="928" y="251" fill="#9060ff" font-size="6">Bus I2C (SDA/SCL)</text>
+      <line x1="882" y1="263" x2="918" y2="263" stroke="#ffe040" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="928" y="266" fill="#ffe040" font-size="6">UART (TX/RX)</text>
+
+      <!-- ─── Titre principal ─── -->
+      <text x="550" y="22" text-anchor="middle" fill="#00f5ff" font-size="10" font-weight="bold" opacity=".6">SYSTÈME DE SURVEILLANCE INTELLIGENTE DE VOITURE — SCHÉMA ÉLECTRONIQUE COMPLET</text>
+      <text x="550" y="772" text-anchor="middle" fill="#223" font-size="6">© Marzoug Samira • Manar Largou • Zahra Maalal • Maryem Edaoidi</text>
+    </svg>
+  </div>
+
+  <!-- Tableau des connexions -->
+  <div class="tableau-connexions">
+    <table>
+      <thead>
+        <tr>
+          <th>Composant</th>
+          <th>Broche Composant</th>
+          <th>Broche Arduino</th>
+          <th>Type de Signal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>HC-05 Bluetooth</td><td>TX</td><td style="color:var(--yellow)">D0 (RX)</td><td style="color:var(--muted)">UART</td></tr>
+        <tr><td>HC-05 Bluetooth</td><td>RX</td><td style="color:var(--yellow)">D1 (TX)</td><td style="color:var(--muted)">UART</td></tr>
+        <tr><td>HC-SR04 Avant</td><td>TRIG</td><td style="color:var(--cyan)">D2</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>HC-SR04 Avant</td><td>ECHO</td><td style="color:var(--cyan)">D3</td><td style="color:var(--muted)">Numérique — Entrée</td></tr>
+        <tr><td>HC-SR04 Arrière</td><td>TRIG</td><td style="color:var(--green)">D4</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>HC-SR04 Arrière</td><td>ECHO</td><td style="color:var(--green)">D5</td><td style="color:var(--muted)">Numérique — Entrée</td></tr>
+        <tr><td>DEL Verte Avant</td><td>Anode (via 220 Ω)</td><td style="color:var(--green)">D6</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>DEL Jaune Avant</td><td>Anode (via 220 Ω)</td><td style="color:var(--yellow)">D7</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>DEL Rouge Avant</td><td>Anode (via 220 Ω)</td><td style="color:var(--red)">D8</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>DEL Verte Arrière</td><td>Anode (via 220 Ω)</td><td style="color:var(--green)">D9</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>DEL Jaune Arrière</td><td>Anode (via 220 Ω)</td><td style="color:var(--yellow)">D10</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>DEL Rouge Arrière</td><td>Anode (via 220 Ω)</td><td style="color:var(--red)">D11</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>Interrupteur Porte</td><td>Signal</td><td style="color:var(--cyan)">D12</td><td style="color:var(--muted)">Numérique — Entrée</td></tr>
+        <tr><td>Interrupteur Feux</td><td>Signal</td><td style="color:var(--cyan)">D13</td><td style="color:var(--muted)">Numérique — Entrée</td></tr>
+        <tr><td>LM35 Température</td><td>VOUT</td><td style="color:var(--orange)">A0</td><td style="color:var(--muted)">Analogique — Entrée</td></tr>
+        <tr><td>Afficheur LCD 16×2</td><td>RS, EN, DB4–DB7</td><td style="color:#4488ff">D Multiples</td><td style="color:var(--muted)">Numérique — Sortie</td></tr>
+        <tr><td>RTC DS3231</td><td>SDA</td><td style="color:var(--purple)">A4 (SDA)</td><td style="color:var(--muted)">I2C</td></tr>
+        <tr><td>RTC DS3231</td><td>SCL</td><td style="color:#6040cc">A5 (SCL)</td><td style="color:var(--muted)">I2C</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     SIMULATION PROTEUS
+══════════════════════════════════════════════ -->
+<section id="simulation" class="reveal">
+  <div class="etiquette">// 06 — SIMULATION PROTEUS ISIS</div>
+  <h2 class="titre-section">Simulation sur Proteus ISIS</h2>
+  <div class="ligne-titre"></div>
+  <div class="sim-grille">
+    <div class="sim-etapes">
+      <div class="sim-etape"><div class="sim-num">1</div><div class="sim-contenu"><h4>Installer Proteus ISIS</h4><p>Télécharger et installer Proteus Design Suite (version 8.x recommandée) qui inclut ISIS pour la simulation et ARES pour le routage du circuit imprimé.</p></div></div>
+      <div class="sim-etape"><div class="sim-num">2</div><div class="sim-contenu"><h4>Ajouter les Composants</h4><p>Utiliser la bibliothèque de composants ISIS : rechercher Arduino UNO, HC-SR04, LM35, LCD1602, HC-05, DS3231 et les placer sur la feuille de schéma.</p></div></div>
+      <div class="sim-etape"><div class="sim-num">3</div><div class="sim-contenu"><h4>Effectuer le Câblage</h4><p>Connecter tous les composants conformément au schéma électronique fourni. Utiliser le mode fil (Wire Mode) et les terminaux d'alimentation (5V, GND).</p></div></div>
+      <div class="sim-etape"><div class="sim-num">4</div><div class="sim-contenu"><h4>Charger le Programme</h4><p>Double-cliquer sur l'Arduino dans ISIS puis charger le fichier .hex compilé depuis l'IDE Arduino (disponible dans le dossier temporaire après compilation).</p></div></div>
+      <div class="sim-etape"><div class="sim-num">5</div><div class="sim-contenu"><h4>Lancer la Simulation</h4><p>Appuyer sur le bouton Lecture (▶) pour démarrer la simulation. Observer les DEL s'allumer, le LCD afficher les données et tester les capteurs interactifs en temps réel.</p></div></div>
+    </div>
+    <div class="sim-visuel">
+      <div class="proteus-logo">⚡ PROTEUS</div>
+      <div style="font-family:'Exo 2',sans-serif; font-size:clamp(.88rem,1.5vw,.95rem); font-weight:400; color:var(--muted); line-height:1.8; margin-bottom:16px;">
+        Proteus ISIS (Intelligent Schematic Input System) est un logiciel de simulation électronique professionnel qui permet de tester le circuit complet avant le montage physique sur carte.
+      </div>
+      <div class="terminal-code">
+        <div><span class="cmt">▶ Simulation démarrée</span></div>
+        <div><span class="kw">[LCD]</span> <span class="bl">Temp: 28°C    12:34:56</span></div>
+        <div><span class="kw">[LCD]</span> <span class="bl">AV: 45 cm    AR: 80 cm</span></div>
+        <div><span class="kw">[BT]</span>  <span class="bl">DONNÉES: T=28,AV=45,AR=80</span></div>
+        <div><span class="kw">[DEL]</span> <span style="color:var(--green)">VERTE ALLUMÉE</span> — Zone sûre</div>
+        <div><span class="kw">[RTC]</span> <span class="bl">Heure: 12:34:57</span></div>
+      </div>
+      <div class="badges-proteus">
+        <span class="badge-p">Schéma ISIS</span>
+        <span class="badge-p">Routage ARES</span>
+        <span class="badge-p">Simulation VSM</span>
+        <span class="badge-p">Support Arduino</span>
+        <span class="badge-p">Terminal Virtuel</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     CONCLUSION
+══════════════════════════════════════════════ -->
+<section id="conclusion" class="reveal">
+  <div class="etiquette">// 07 — CONCLUSION</div>
+  <h2 class="titre-section">Conclusion</h2>
+  <div class="ligne-titre"></div>
+  <div class="conclusion-boite">
+    <div class="conclusion-icone">🚗</div>
+    <h3>Vers des Véhicules Plus Intelligents et Plus Sûrs</h3>
+    <p>Ce projet de <strong>Système de Surveillance Intelligente de Voiture</strong> démontre comment des technologies embarquées accessibles peuvent transformer un véhicule ordinaire en un système connecté, réactif et intelligent.</p>
+    <p>L'intégration d'un <strong>microcontrôleur Arduino Uno</strong>, de capteurs ultrasons, d'un module d'horloge temps réel, d'un afficheur LCD et d'une communication Bluetooth constitue une architecture complète pouvant servir de base à des systèmes embarqués automobiles professionnels.</p>
+    <p>Ce type de système représente l'avenir de la <strong>sécurité routière</strong> : prévenir les accidents, alerter le conducteur en temps réel et fournir des données précieuses pour la maintenance préventive du véhicule. Il s'inscrit pleinement dans la dynamique des véhicules connectés et intelligents.</p>
+    <div class="atouts">
+      <div class="atout" style="border:1px solid rgba(0,245,255,.2); background:rgba(0,245,255,.04);">
+        <div class="atout-icone">✅</div>
+        <div class="atout-label">Sécurité Accrue</div>
+      </div>
+      <div class="atout" style="border:1px solid rgba(0,255,136,.2); background:rgba(0,255,136,.04);">
+        <div class="atout-icone">⚡</div>
+        <div class="atout-label">Temps Réel</div>
+      </div>
+      <div class="atout" style="border:1px solid rgba(255,140,0,.2); background:rgba(255,140,0,.04);">
+        <div class="atout-icone">📱</div>
+        <div class="atout-label">Connecté</div>
+      </div>
+      <div class="atout" style="border:1px solid rgba(144,96,255,.2); background:rgba(144,96,255,.04);">
+        <div class="atout-icone">🔬</div>
+        <div class="atout-label">Évolutif</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     PIED DE PAGE
+══════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-logo">⚡ SYSTÈME DE SURVEILLANCE INTELLIGENTE DE VOITURE</div>
+  <div class="footer-sous">Réalisé par</div>
+  <div class="equipe">
+    <div class="membre">👩‍💻 Marzoug Samira</div>
+    <div class="membre">👩‍💻 Manar Largou</div>
+    <div class="membre">👩‍💻 Zahra Maalal</div>
+    <div class="membre">👩‍💻 Maryem Edaoidi</div>
+  </div>
+  <div class="footer-bas">
+    Projet Électronique — Arduino Uno — Filière Électronique et Systèmes Embarqués<br>
+    <span style="color:var(--cyan); font-family:'JetBrains Mono',monospace;">Système de Surveillance Intelligente de Voiture Utilisant Arduino Uno</span>
+  </div>
+</footer>
+
+<script>
+/* ── MENU BURGER ── */
+function toggleMenu() {
+  const b = document.getElementById('burger');
+  const m = document.getElementById('mobileMenu');
+  b.classList.toggle('open');
+  m.classList.toggle('open');
+}
+function fermerMenu() {
+  document.getElementById('burger').classList.remove('open');
+  document.getElementById('mobileMenu').classList.remove('open');
+}
+
+/* ── SCROLL REVEAL ── */
+const observeur = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07 });
+document.querySelectorAll('.reveal').forEach(el => observeur.observe(el));
+
+/* ── LIEN ACTIF DANS LA NAVIGATION ── */
+const sections  = document.querySelectorAll('section[id]');
+const liensNav  = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', () => {
+  let courant = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 130) courant = s.id; });
+  liensNav.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + courant);
+  });
+}, { passive: true });
+
+/* ── CLIGNOTEMENT CADENCÉ DES DEL ── */
+setInterval(() => {
+  document.querySelectorAll('.cercle-led').forEach((led, i) => {
+    setTimeout(() => {
+      led.style.opacity = '0.4';
+      setTimeout(() => { led.style.opacity = '1'; }, 200);
+    }, i * 150);
+  });
+}, 2800);
+
+/* ── TRAÎNÉE DE CURSEUR (desktop uniquement) ── */
+if (window.matchMedia('(pointer: fine)').matches) {
+  document.addEventListener('mousemove', (e) => {
+    if (Math.random() > 0.88) {
+      const point = document.createElement('div');
+      point.style.cssText = `
+        position:fixed; pointer-events:none; z-index:9999;
+        width:4px; height:4px; border-radius:50%;
+        background:rgba(0,245,255,0.55);
+        left:${e.clientX}px; top:${e.clientY}px;
+        transform:translate(-50%,-50%);
+        transition:opacity .7s, transform .7s;
+      `;
+      document.body.appendChild(point);
+      requestAnimationFrame(() => {
+        point.style.opacity = '0';
+        point.style.transform = 'translate(-50%,-50%) scale(3)';
+      });
+      setTimeout(() => point.remove(), 750);
+    }
+  });
+}
+</script>
+</body>
+</html>
